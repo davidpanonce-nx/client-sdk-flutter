@@ -62,19 +62,14 @@ class Vapi {
       'Content-Type': 'application/json',
     };
     var body = assistantId != null
-        ? jsonEncode({
-            'assistantId': assistantId,
-            'assistantOverrides': assistantOverrides
-          })
-        : jsonEncode(
-            {'assistant': assistant, 'assistantOverrides': assistantOverrides});
+        ? jsonEncode({'assistantId': assistantId, 'assistantOverrides': assistantOverrides})
+        : jsonEncode({'assistant': assistant, 'assistantOverrides': assistantOverrides});
 
     print("🔄 ${DateTime.now()}: Vapi - Preparing Call & Client...");
 
     // Create the Vapi call and client creation as futures
     var vapiCallFuture = http.post(url, headers: headers, body: body);
-    var clientCreationFuture =
-        _createClientWithRetries(clientCreationTimeoutDuration);
+    var clientCreationFuture = _createClientWithRetries(clientCreationTimeoutDuration);
 
     // Wait for both futures to complete
     var results = await Future.wait([vapiCallFuture, clientCreationFuture]);
@@ -86,10 +81,11 @@ class Vapi {
 
     var webCallUrl = null;
 
+    var data = jsonDecode(response.body);
+
     if (response.statusCode == 201) {
       print("🆗 ${DateTime.now()}: Vapi - Vapi Call Ready");
 
-      var data = jsonDecode(response.body);
       webCallUrl = data['webCallUrl'];
       if (webCallUrl == null) {
         print('🆘 ${DateTime.now()}: Vapi - Vapi Call URL not found');
@@ -99,8 +95,7 @@ class Vapi {
     } else {
       client.dispose();
       _client = null;
-      print(
-          '🆘 ${DateTime.now()}: Vapi - Failed to create Vapi Call. Error: ${response.body}');
+      print('🆘 ${DateTime.now()}: Vapi - Failed to create Vapi Call. Error: ${response.body}');
       emit(VapiEvent("call-error"));
       return;
     }
@@ -116,7 +111,7 @@ class Vapi {
               _client = null;
               print("⏹️  ${DateTime.now()}: Vapi - Call Ended.");
 
-              emit(VapiEvent("call-end"));
+              emit(VapiEvent("call-end", data));
               break;
             case CallState.joined:
               print("🆗 ${DateTime.now()}: Vapi - Joined Call");
@@ -154,10 +149,8 @@ class Vapi {
             url: Uri.parse(webCallUrl),
             clientSettings: const ClientSettingsUpdate.set(
                 inputs: InputSettingsUpdate.set(
-              microphone: MicrophoneInputSettingsUpdate.set(
-                  isEnabled: BoolUpdate.set(true)),
-              camera: CameraInputSettingsUpdate.set(
-                  isEnabled: BoolUpdate.set(false)),
+              microphone: MicrophoneInputSettingsUpdate.set(isEnabled: BoolUpdate.set(true)),
+              camera: CameraInputSettingsUpdate.set(isEnabled: BoolUpdate.set(false)),
             )))
         .catchError((e) {
       throw Exception('🆘 ${DateTime.now()}: Vapi - Failed to join call: $e');
@@ -179,8 +172,7 @@ class Vapi {
       Future.delayed(clientCreationTimeoutDuration).then((_) {
         if (!completer.isCompleted) {
           print("⏳ ${DateTime.now()}: Vapi - Client creation timed out.");
-          completer
-              .completeError(TimeoutException('Client creation timed out'));
+          completer.completeError(TimeoutException('Client creation timed out'));
         }
       });
 
@@ -199,16 +191,14 @@ class Vapi {
 
     while (retries < maxRetries) {
       try {
-        print(
-            "🔄 ${DateTime.now()}: Vapi - Creating client (Attempt ${retries + 1})...");
+        print("🔄 ${DateTime.now()}: Vapi - Creating client (Attempt ${retries + 1})...");
         var client = await createWithTimeout();
         print("🆗 ${DateTime.now()}: Vapi - Client Created");
         return client;
       } catch (e) {
         retries++;
         if (retries >= maxRetries) {
-          print(
-              "🆘 ${DateTime.now()}: Vapi - Failed to create client after $maxRetries attempts.");
+          print("🆘 ${DateTime.now()}: Vapi - Failed to create client after $maxRetries attempts.");
           rethrow;
         }
       }
@@ -245,11 +235,12 @@ class Vapi {
   }
 
   void setMuted(bool muted) {
-    _client!.updateInputs(
-        inputs: InputSettingsUpdate.set(
-      microphone:
-          MicrophoneInputSettingsUpdate.set(isEnabled: BoolUpdate.set(!muted)),
-    ));
+    if (_client != null) {
+      _client!.updateInputs(
+          inputs: InputSettingsUpdate.set(
+        microphone: MicrophoneInputSettingsUpdate.set(isEnabled: BoolUpdate.set(!muted)),
+      ));
+    }
   }
 
   bool isMuted() {
