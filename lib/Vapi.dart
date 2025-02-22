@@ -29,7 +29,7 @@ class Vapi {
 
   Vapi(this.publicKey, [this.apiBaseUrl]);
 
-  Future<void> start({
+  Future<dynamic> start({
     String? assistantId,
     dynamic assistant,
     dynamic assistantOverrides = const {},
@@ -155,6 +155,8 @@ class Vapi {
         .catchError((e) {
       throw Exception('🆘 ${DateTime.now()}: Vapi - Failed to join call: $e');
     });
+
+    return data;
   }
 
   Future<CallClient> _createClientWithRetries(
